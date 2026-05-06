@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PG Hostel — Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .page { padding: 28px; }
+    .page-title { font-size: 22px; font-weight: 600; margin-bottom: 6px; }
+    .page-sub { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 32px; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; }
+    .stat-label { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+    .stat-value { font-size: 30px; font-weight: 600; }
+    .stat-value.green  { color: var(--green);  }
+    .stat-value.orange { color: var(--orange); }
+    .stat-value.blue   { color: var(--blue);   }
+    .legend { display: flex; align-items: center; gap: 20px; margin-bottom: 24px; flex-wrap: wrap; }
+    .legend-label { font-size: 12px; color: var(--muted); }
+    .legend-item  { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+    .legend-dot   { width: 10px; height: 10px; border-radius: 50%; }
+    .floor-section { margin-bottom: 32px; }
+    .floor-header  { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .floor-name    { font-size: 12px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; white-space: nowrap; }
+    .floor-line    { flex: 1; height: 1px; background: var(--border); }
+    .room-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+    .room-card { border-radius: 14px; padding: 16px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; transition: transform .15s, box-shadow .15s; }
+    .room-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+    .room-card.occupied { background: #052e16; border-color: #166534; }
+    .room-card.unpaid   { background: #2d1500; border-color: #7c2d12; }
+    .room-card.overdue  { background: #2d0a0a; border-color: #7f1d1d; }
+    .room-card.vacant   { background: #0c1a3a; border-color: #1e3a6e; }
+    .room-number      { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+    .room-tenant-name { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+    .room-info        { font-size: 11px; color: var(--muted); margin-bottom: 10px; }
+    .room-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 20px; }
+    .badge-dot  { width: 6px; height: 6px; border-radius: 50%; }
+    .room-card.occupied .room-badge { background: rgba(34,197,94,0.15);  color: #22c55e; }
+    .room-card.occupied .badge-dot  { background: #22c55e; }
+    .room-card.unpaid   .room-badge { background: rgba(249,115,22,0.15); color: #f97316; }
+    .room-card.unpaid   .badge-dot  { background: #f97316; }
+    .room-card.overdue  .room-badge { background: rgba(239,68,68,0.15);  color: #ef4444; }
+    .room-card.overdue  .badge-dot  { background: #ef4444; }
+    .room-card.vacant   .room-badge { background: rgba(59,130,246,0.15); color: #3b82f6; }
+    .room-card.vacant   .badge-dot  { background: #3b82f6; }
+
+    /* MODAL MEMBERS */
+    .member-section { margin-bottom: 20px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .member-header  { background: var(--surface2); padding: 10px 14px; font-size: 13px; font-weight: 500; display: flex; justify-content: space-between; align-items: center; }
+    .member-body    { padding: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .member-status-row { grid-column: 1 / -1; }
+
+    @media (max-width: 700px) {
+      .room-grid { grid-template-columns: repeat(3, 1fr); }
+      .stats-row { grid-template-columns: 1fr 1fr; }
+      .page      { padding: 16px; }
+      .member-body { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <script src="js/main.js"></script>
+
+  <div class="navbar">
+    <div class="nav-logo"><span>🏠</span> PG Hostel</div>
+    <div class="nav-links">
+      <a href="dashboard.html" class="active">Dashboard</a>
+      <a href="tenants.html">Tenants</a>
+      <a href="payments.html">Payments</a>
+    </div>
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </div>
+
+  <div class="page">
+    <div class="page-title">Room Dashboard</div>
+    <div class="page-sub">Click any room to update member details and payment status</div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Total Rooms</div>
+        <div class="stat-value">15</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Occupied & Paid</div>
+        <div class="stat-value green" id="count-occupied">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Unpaid / Overdue</div>
+        <div class="stat-value orange" id="count-unpaid">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Vacant</div>
+        <div class="stat-value blue" id="count-vacant">0</div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <span class="legend-label">Legend:</span>
+      <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div> Paid</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f97316"></div> Unpaid</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div> Overdue</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div> Vacant</div>
+    </div>
+
+    <div id="floors-container"></div>
+  </div>
+
+  <!-- MODAL -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal-box" style="width:520px;max-height:90vh;overflow-y:auto;">
+      <div class="modal-title" id="modal-title">Room 101</div>
+
+      <!-- RENT -->
+      <div class="form-group">
+        <label class="form-label">Rent per room (₹)</label>
+        <input class="form-input" id="f-rent" type="number" placeholder="e.g. 6000">
+      </div>
+
+      <!-- 4 MEMBERS -->
+      <div id="members-container"></div>
+
+      <div class="modal-actions">
+        <button class="btn btn-cancel" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" id="save-btn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    checkLogin();
+
+    const statusText = {
+      vacant: 'Vacant', occupied: 'Paid',
+      unpaid: 'Unpaid', overdue: 'Overdue'
+    };
+
+    let rooms = {};
+    let currentRoom = null;
+
+    async function loadRoomsFromDB() {
+      try {
+        const response = await fetch('api/get_rooms.php');
+        const result   = await response.json();
+        if (result.success) {
+          rooms = result.rooms;
+          render();
+        } else {
+          showToast('Rooms load కాలేదు!', 'error');
+        }
+      } catch (err) {
+        showToast('Server connect కాలేదు!', 'error');
+      }
+    }
+
+    function render() {
+      const container = document.getElementById('floors-container');
+      container.innerHTML = '';
+      let occupiedCount = 0, unpaidCount = 0, vacantCount = 0;
+
+      FLOORS.forEach(floor => {
+        const section = document.createElement('div');
+        section.className = 'floor-section';
+        section.innerHTML = `
+          <div class="floor-header">
+            <div class="floor-name">${floor.label}</div>
+            <div class="floor-line"></div>
+          </div>
+          <div class="room-grid"></div>
+        `;
+        container.appendChild(section);
+        const grid = section.querySelector('.room-grid');
+
+        floor.rooms.forEach(roomId => {
+          const r = rooms[roomId];
+          if (!r) return;
+
+          // Active members count
+          const members = r.members || {};
+          const activeMembers = [1,2,3,4].filter(i =>
+            members[i] && members[i].status !== 'vacant' && members[i].name
+          );
+
+          const card = document.createElement('div');
+          card.className = `room-card ${r.status}`;
+          card.onclick = () => openModal(roomId);
+          card.innerHTML = `
+            <div class="room-number">ROOM ${roomId}</div>
+            <div class="room-tenant-name">
+              ${activeMembers.length > 0
+                ? `${activeMembers.length} member${activeMembers.length !== 1 ? 's' : ''}`
+                : 'Vacant'}
+            </div>
+            <div class="room-info">
+              ${activeMembers.length > 0
+                ? `${formatRupees(r.rent)}/mo`
+                : 'Available'}
+            </div>
+            <div class="room-badge">
+              <div class="badge-dot"></div>
+              ${statusText[r.status]}
+            </div>
+          `;
+          grid.appendChild(card);
+
+          if (r.status === 'occupied') occupiedCount++;
+          else if (r.status === 'unpaid' || r.status === 'overdue') unpaidCount++;
+          else vacantCount++;
+        });
+      });
+
+      document.getElementById('count-occupied').textContent = occupiedCount;
+      document.getElementById('count-unpaid').textContent   = unpaidCount;
+      document.getElementById('count-vacant').textContent   = vacantCount;
+    }
+
+    function buildMembersForm(roomId) {
+      const r = rooms[roomId];
+      const members = r.members || {};
+      let html = '';
+
+      for (let i = 1; i <= 4; i++) {
+        const m = members[i] || {};
+        html += `
+          <div class="member-section">
+            <div class="member-header">
+              <span>👤 Member ${i}</span>
+            </div>
+            <div class="member-body">
+              <div class="form-group">
+                <label class="form-label">Name</label>
+                <input class="form-input" id="m${i}-name" type="text"
+                  placeholder="Member ${i} name" value="${m.name || ''}">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Phone</label>
+                <input class="form-input" id="m${i}-phone" type="text"
+                  placeholder="Phone number" value="${m.phone || ''}">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Move-in date</label>
+                <input class="form-input" id="m${i}-movein" type="date"
+                  value="${m.movein || ''}">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Last payment date</label>
+                <input class="form-input" id="m${i}-payment" type="date"
+                  value="${m.payment || ''}">
+              </div>
+              <div class="form-group member-status-row">
+                <label class="form-label">Payment status</label>
+                <select class="form-select" id="m${i}-status">
+                  <option value="vacant"   ${m.status === 'vacant'   ? 'selected' : ''}>Vacant — not occupied</option>
+                  <option value="occupied" ${m.status === 'occupied' ? 'selected' : ''}>Paid ✅</option>
+                  <option value="unpaid"   ${m.status === 'unpaid'   ? 'selected' : ''}>Unpaid ⚠️</option>
+                  <option value="overdue"  ${m.status === 'overdue'  ? 'selected' : ''}>Overdue 🔴</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+      return html;
+    }
+
+    function openModal(roomId) {
+      const r = rooms[roomId];
+      currentRoom = roomId;
+      document.getElementById('modal-title').textContent = `Room ${roomId} — Edit Members`;
+      document.getElementById('f-rent').value = r.rent || '';
+      document.getElementById('members-container').innerHTML = buildMembersForm(roomId);
+      document.getElementById('modal').classList.add('open');
+    }
+
+    function closeModal() {
+      document.getElementById('modal').classList.remove('open');
+      currentRoom = null;
+    }
+
+    setupModalClose('modal');
+
+    document.getElementById('save-btn').addEventListener('click', async function() {
+      if (!currentRoom) return;
+
+      const data = {
+        id:   currentRoom,
+        rent: parseInt(document.getElementById('f-rent').value) || 0,
+        members: {
+          1: {
+            name:    document.getElementById('m1-name').value.trim(),
+            phone:   document.getElementById('m1-phone').value.trim(),
+            movein:  document.getElementById('m1-movein').value,
+            payment: document.getElementById('m1-payment').value,
+            status:  document.getElementById('m1-status').value,
+          },
+          2: {
+            name:    document.getElementById('m2-name').value.trim(),
+            phone:   document.getElementById('m2-phone').value.trim(),
+            movein:  document.getElementById('m2-movein').value,
+            payment: document.getElementById('m2-payment').value,
+            status:  document.getElementById('m2-status').value,
+          },
+          3: {
+            name:    document.getElementById('m3-name').value.trim(),
+            phone:   document.getElementById('m3-phone').value.trim(),
+            movein:  document.getElementById('m3-movein').value,
+            payment: document.getElementById('m3-payment').value,
+            status:  document.getElementById('m3-status').value,
+          },
+          4: {
+            name:    document.getElementById('m4-name').value.trim(),
+            phone:   document.getElementById('m4-phone').value.trim(),
+            movein:  document.getElementById('m4-movein').value,
+            payment: document.getElementById('m4-payment').value,
+            status:  document.getElementById('m4-status').value,
+          },
+        }
+      };
+
+      try {
+        const response = await fetch('api/save_room.php', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (result.success) {
+          showToast('Room saved successfully!', 'success');
+          closeModal();
+          loadRoomsFromDB();
+        } else {
+          showToast(result.message || 'Save కాలేదు!', 'error');
+        }
+      } catch (err) {
+        showToast('Server connect కాలేదు!', 'error');
+      }
+    });
+
+    loadRoomsFromDB();
+  </script>
+
+</body>
+</html>

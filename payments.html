@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PG Hostel — Payments</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .page { padding: 28px; }
+    .page-title { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+    .page-sub   { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
+    .stat-card  { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; }
+    .stat-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .stat-value { font-size: 22px; font-weight: 600; }
+    .stat-value.green  { color: var(--green);  }
+    .stat-value.orange { color: var(--orange); }
+    .stat-value.red    { color: var(--red);    }
+    .stat-value.blue   { color: var(--blue);   }
+    .summary-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px 24px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+    .summary-title { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+    .summary-sub   { font-size: 12px; color: var(--muted); }
+    .summary-amounts { display: flex; gap: 28px; flex-wrap: wrap; }
+    .amount-item   { text-align: right; }
+    .amount-label  { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+    .amount-value  { font-size: 20px; font-weight: 600; }
+    .amount-value.green  { color: var(--green);  }
+    .amount-value.orange { color: var(--orange); }
+    .month-row { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+    .month-label { font-size: 13px; color: var(--muted); }
+    .month-select, .filter-select { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px 14px; font-size: 13px; color: var(--text); font-family: 'DM Sans', sans-serif; outline: none; cursor: pointer; }
+    .month-select option, .filter-select option { background: var(--surface2); }
+    .search-input { flex: 1; min-width: 180px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px 14px; font-size: 13px; color: var(--text); font-family: 'DM Sans', sans-serif; outline: none; }
+    .search-input:focus { border-color: var(--primary); }
+    .mark-btn { padding: 5px 14px; border-radius: 8px; font-size: 12px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; border: 1px solid var(--border); transition: all .15s; }
+    .mark-btn.mark-paid    { background: rgba(34,197,94,0.1);  color: #22c55e; border-color: rgba(34,197,94,0.3);  }
+    .mark-btn.mark-paid:hover    { background: rgba(34,197,94,0.2); }
+    .mark-btn.mark-unpaid  { background: rgba(249,115,22,0.1); color: #f97316; border-color: rgba(249,115,22,0.3); }
+    .mark-btn.mark-unpaid:hover  { background: rgba(249,115,22,0.2); }
+    @media (max-width: 700px) {
+      .stats-row { grid-template-columns: 1fr 1fr; }
+      .page      { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+  <script src="js/main.js"></script>
+
+  <div class="navbar">
+    <div class="nav-logo"><span>🏠</span> PG Hostel</div>
+    <div class="nav-links">
+      <a href="dashboard.html">Dashboard</a>
+      <a href="tenants.html">Tenants</a>
+      <a href="payments.html" class="active">Payments</a>
+    </div>
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </div>
+
+  <div class="page">
+    <div class="page-title">Payment Tracking</div>
+    <div class="page-sub">Track rent payments for all members month by month</div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Total Rent Expected</div>
+        <div class="stat-value blue" id="stat-expected">₹0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Collected</div>
+        <div class="stat-value green" id="stat-collected">₹0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Pending Amount</div>
+        <div class="stat-value orange" id="stat-pending">₹0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Overdue Amount</div>
+        <div class="stat-value red" id="stat-overdue">₹0</div>
+      </div>
+    </div>
+
+    <div class="summary-card">
+      <div>
+        <div class="summary-title" id="summary-title">May 2026 Summary</div>
+        <div class="summary-sub"  id="summary-sub">Loading...</div>
+      </div>
+      <div class="summary-amounts">
+        <div class="amount-item">
+          <div class="amount-label">Collected</div>
+          <div class="amount-value green" id="summary-collected">₹0</div>
+        </div>
+        <div class="amount-item">
+          <div class="amount-label">Remaining</div>
+          <div class="amount-value orange" id="summary-remaining">₹0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="month-row">
+      <span class="month-label">Month:</span>
+      <select class="month-select" id="month-select" onchange="renderTable()">
+        <option value="2026-05">May 2026</option>
+        <option value="2026-04">April 2026</option>
+        <option value="2026-03">March 2026</option>
+        <option value="2026-02">February 2026</option>
+        <option value="2026-01">January 2026</option>
+        <option value="2025-12">December 2025</option>
+      </select>
+      <select class="filter-select" id="filter-status" onchange="renderTable()">
+        <option value="all">All Status</option>
+        <option value="occupied">Paid</option>
+        <option value="unpaid">Unpaid</option>
+        <option value="overdue">Overdue</option>
+      </select>
+      <input class="search-input" id="search-input" type="text"
+        placeholder="🔍  Search by name or room..."
+        oninput="renderTable()">
+    </div>
+
+    <div class="table-wrap">
+      <table id="payments-table">
+        <thead>
+          <tr>
+            <th>Member</th>
+            <th>Room</th>
+            <th>Floor</th>
+            <th>Last Payment</th>
+            <th>Rent</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="payment-tbody"></tbody>
+      </table>
+      <div class="empty-state" id="empty-state" style="display:none">
+        <div class="empty-icon">💸</div>
+        <div class="empty-text">No payment records found</div>
+        <div class="empty-sub">Add members from the Dashboard first</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    checkLogin();
+
+    let rooms = {};
+
+    async function loadRoomsFromDB() {
+      try {
+        const response = await fetch('api/get_rooms.php');
+        const result   = await response.json();
+        if (result.success) {
+          rooms = result.rooms;
+          renderTable();
+        } else {
+          showToast('Data load కాలేదు!', 'error');
+        }
+      } catch (err) {
+        showToast('Server connect కాలేదు!', 'error');
+      }
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '—';
+      const d = new Date(dateStr);
+      return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    function renderTable() {
+      const searchVal    = document.getElementById('search-input').value.toLowerCase();
+      const filterStatus = document.getElementById('filter-status').value;
+      const monthVal     = document.getElementById('month-select').value;
+      const tbody        = document.getElementById('payment-tbody');
+      tbody.innerHTML    = '';
+
+      let totalExpected = 0, totalCollected = 0;
+      let totalPending  = 0, totalOverdue   = 0;
+      let hasRows = false;
+      let totalMembers = 0, paidMembers = 0;
+
+      ALL_ROOM_IDS.forEach(roomId => {
+        const r = rooms[roomId];
+        if (!r) return;
+
+        const members = r.members || {};
+        const rentPerMember = Math.round((r.rent || 0) / 4);
+
+        for (let i = 1; i <= 4; i++) {
+          const m = members[i];
+          if (!m || m.status === 'vacant' || !m.name) continue;
+
+          totalMembers++;
+          totalExpected += rentPerMember;
+
+          if (m.status === 'occupied') { totalCollected += rentPerMember; paidMembers++; }
+          if (m.status === 'unpaid')   totalPending   += rentPerMember;
+          if (m.status === 'overdue')  totalOverdue   += rentPerMember;
+
+          const matchSearch =
+            (m.name || '').toLowerCase().includes(searchVal) ||
+            String(roomId).includes(searchVal);
+          const matchStatus =
+            filterStatus === 'all' || m.status === filterStatus;
+
+          if (!matchSearch || !matchStatus) continue;
+
+          hasRows = true;
+          const isPaid = m.status === 'occupied';
+
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>
+              <div class="tenant-cell">
+                <div class="avatar">${getInitials(m.name)}</div>
+                <div>
+                  <div class="tenant-name">${m.name}</div>
+                  <div class="tenant-phone">Member ${i} · Room ${roomId}</div>
+                </div>
+              </div>
+            </td>
+            <td>Room ${roomId}</td>
+            <td>${getFloorName(roomId)}</td>
+            <td>${formatDate(m.payment)}</td>
+            <td>${formatRupees(rentPerMember)}</td>
+            <td>${badgeHTML(m.status)}</td>
+            <td>
+              ${isPaid
+                ? `<button class="mark-btn mark-unpaid"
+                     onclick="markStatus(${roomId}, ${i}, 'unpaid')">
+                     Mark Unpaid
+                   </button>`
+                : `<button class="mark-btn mark-paid"
+                     onclick="markStatus(${roomId}, ${i}, 'occupied')">
+                     Mark Paid ✅
+                   </button>`
+              }
+            </td>
+          `;
+          tbody.appendChild(tr);
+        }
+      });
+
+      document.getElementById('payments-table').style.display = hasRows ? 'table' : 'none';
+      document.getElementById('empty-state').style.display    = hasRows ? 'none'  : 'block';
+
+      document.getElementById('stat-expected').textContent  = formatRupees(totalExpected);
+      document.getElementById('stat-collected').textContent = formatRupees(totalCollected);
+      document.getElementById('stat-pending').textContent   = formatRupees(totalPending);
+      document.getElementById('stat-overdue').textContent   = formatRupees(totalOverdue);
+
+      document.getElementById('summary-title').textContent     = `${getMonthName(monthVal)} Summary`;
+      document.getElementById('summary-sub').textContent       = `${paidMembers} of ${totalMembers} members have paid this month`;
+      document.getElementById('summary-collected').textContent = formatRupees(totalCollected);
+      document.getElementById('summary-remaining').textContent = formatRupees(totalPending + totalOverdue);
+    }
+
+    // ── MARK PAID / UNPAID ──
+    async function markStatus(roomId, memberNum, newStatus) {
+      const r = rooms[roomId];
+      if (!r) return;
+
+      const data = {
+        id:   roomId,
+        rent: r.rent,
+        members: {
+          1: { ...r.members[1] },
+          2: { ...r.members[2] },
+          3: { ...r.members[3] },
+          4: { ...r.members[4] },
+        }
+      };
+
+      data.members[memberNum].status = newStatus;
+      if (newStatus === 'occupied') {
+        data.members[memberNum].payment = new Date().toISOString().split('T')[0];
+      }
+
+      try {
+        const response = await fetch('api/save_room.php', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (result.success) {
+          showToast(
+            newStatus === 'occupied' ? 'Marked as Paid ✅' : 'Marked as Unpaid',
+            'success'
+          );
+          loadRoomsFromDB();
+        } else {
+          showToast(result.message || 'Update కాలేదు!', 'error');
+        }
+      } catch (err) {
+        showToast('Server connect కాలేదు!', 'error');
+      }
+    }
+
+    loadRoomsFromDB();
+  </script>
+
+</body>
+</html>

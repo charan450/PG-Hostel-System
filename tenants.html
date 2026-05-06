@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PG Hostel — Tenants</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .page { padding: 28px; }
+    .page-title { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+    .page-sub   { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
+    .stat-card  { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; }
+    .stat-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .stat-value { font-size: 26px; font-weight: 600; }
+    .stat-value.green  { color: var(--green);  }
+    .stat-value.orange { color: var(--orange); }
+    .stat-value.red    { color: var(--red);    }
+    .search-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .search-input { flex: 1; min-width: 200px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; font-size: 13px; color: var(--text); font-family: 'DM Sans', sans-serif; outline: none; }
+    .search-input:focus { border-color: var(--primary); }
+    .filter-select { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; font-size: 13px; color: var(--text); font-family: 'DM Sans', sans-serif; outline: none; cursor: pointer; }
+    .filter-select option { background: var(--surface2); }
+    .member-tag { display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 20px; background: var(--surface2); color: var(--muted); margin-right: 3px; }
+    @media (max-width: 700px) {
+      .stats-row { grid-template-columns: 1fr 1fr; }
+      .page      { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+  <script src="js/main.js"></script>
+
+  <div class="navbar">
+    <div class="nav-logo"><span>🏠</span> PG Hostel</div>
+    <div class="nav-links">
+      <a href="dashboard.html">Dashboard</a>
+      <a href="tenants.html" class="active">Tenants</a>
+      <a href="payments.html">Payments</a>
+    </div>
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </div>
+
+  <div class="page">
+    <div class="page-title">All Tenants</div>
+    <div class="page-sub">List of all members currently living in the hostel</div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Total Members</div>
+        <div class="stat-value" id="count-total">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Paid</div>
+        <div class="stat-value green" id="count-paid">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Unpaid</div>
+        <div class="stat-value orange" id="count-unpaid">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Overdue</div>
+        <div class="stat-value red" id="count-overdue">0</div>
+      </div>
+    </div>
+
+    <div class="search-bar">
+      <input class="search-input" id="search-input" type="text"
+        placeholder="🔍  Search by name, phone or room..."
+        oninput="renderTable()">
+      <select class="filter-select" id="filter-status" onchange="renderTable()">
+        <option value="all">All Status</option>
+        <option value="occupied">Paid</option>
+        <option value="unpaid">Unpaid</option>
+        <option value="overdue">Overdue</option>
+      </select>
+      <select class="filter-select" id="filter-floor" onchange="renderTable()">
+        <option value="all">All Floors</option>
+        <option value="100">Ground Floor</option>
+        <option value="200">First Floor</option>
+        <option value="300">Second Floor</option>
+      </select>
+    </div>
+
+    <div class="table-wrap">
+      <table id="tenant-table">
+        <thead>
+          <tr>
+            <th>Member</th>
+            <th>Room</th>
+            <th>Floor</th>
+            <th>Phone</th>
+            <th>Move-in</th>
+            <th>Last Payment</th>
+            <th>Rent</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="tenant-tbody"></tbody>
+      </table>
+      <div class="empty-state" id="empty-state" style="display:none">
+        <div class="empty-icon">👤</div>
+        <div class="empty-text">No tenants found</div>
+        <div class="empty-sub">Go to Dashboard and add members to rooms</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    checkLogin();
+
+    let rooms = {};
+
+    async function loadRoomsFromDB() {
+      try {
+        const response = await fetch('api/get_rooms.php');
+        const result   = await response.json();
+        if (result.success) {
+          rooms = result.rooms;
+          renderTable();
+        } else {
+          showToast('Data load కాలేదు!', 'error');
+        }
+      } catch (err) {
+        showToast('Server connect కాలేదు!', 'error');
+      }
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '—';
+      const d = new Date(dateStr);
+      return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    function renderTable() {
+      const searchVal    = document.getElementById('search-input').value.toLowerCase();
+      const filterStatus = document.getElementById('filter-status').value;
+      const filterFloor  = document.getElementById('filter-floor').value;
+      const tbody = document.getElementById('tenant-tbody');
+      tbody.innerHTML = '';
+
+      let total = 0, paid = 0, unpaid = 0, overdue = 0;
+      let hasRows = false;
+
+      ALL_ROOM_IDS.forEach(roomId => {
+        const r = rooms[roomId];
+        if (!r) return;
+
+        const members = r.members || {};
+
+        for (let i = 1; i <= 4; i++) {
+          const m = members[i];
+          if (!m || m.status === 'vacant' || !m.name) continue;
+
+          total++;
+          if (m.status === 'occupied') paid++;
+          else if (m.status === 'unpaid')  unpaid++;
+          else if (m.status === 'overdue') overdue++;
+
+          const matchSearch =
+            (m.name  || '').toLowerCase().includes(searchVal) ||
+            (m.phone || '').toLowerCase().includes(searchVal) ||
+            String(roomId).includes(searchVal);
+          const matchStatus =
+            filterStatus === 'all' || m.status === filterStatus;
+          const matchFloor =
+            filterFloor === 'all' ||
+            Math.floor(roomId / 100) * 100 === parseInt(filterFloor);
+
+          if (!matchSearch || !matchStatus || !matchFloor) continue;
+
+          hasRows = true;
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>
+              <div class="tenant-cell">
+                <div class="avatar">${getInitials(m.name)}</div>
+                <div>
+                  <div class="tenant-name">${m.name}</div>
+                  <div class="tenant-phone">Member ${i}</div>
+                </div>
+              </div>
+            </td>
+            <td>Room ${roomId}</td>
+            <td>${getFloorName(roomId)}</td>
+            <td>${m.phone || '—'}</td>
+            <td>${formatDate(m.movein)}</td>
+            <td>${formatDate(m.payment)}</td>
+            <td>${formatRupees(r.rent)}</td>
+            <td>${badgeHTML(m.status)}</td>
+          `;
+          tbody.appendChild(tr);
+        }
+      });
+
+      document.getElementById('tenant-table').style.display = hasRows ? 'table' : 'none';
+      document.getElementById('empty-state').style.display  = hasRows ? 'none'  : 'block';
+      document.getElementById('count-total').textContent   = total;
+      document.getElementById('count-paid').textContent    = paid;
+      document.getElementById('count-unpaid').textContent  = unpaid;
+      document.getElementById('count-overdue').textContent = overdue;
+    }
+
+    loadRoomsFromDB();
+  </script>
+
+</body>
+</html>
